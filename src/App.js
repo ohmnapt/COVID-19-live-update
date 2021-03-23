@@ -1,23 +1,70 @@
-import logo from './logo.svg';
-import './App.css';
+import React, { useCallback, useEffect, useState } from 'react';
+import MapView from './Components/MapView';
+import ListView from './Components/ListView';
+import DetailsView from './Components/DetailsView';
+import 'leaflet/dist/leaflet.css';
+import './CSS/App.scss';
+import Axios from 'axios';
+
+const api = 'https://coronavirus-tracker-api.herokuapp.com/v2/locations';
 
 function App() {
+	const [locationArray, setLocationArray] = useState([]);
+	const [selectedLocation, setSelectedLocation] = useState(null);
+	const [mapCenter, setMapCenter]= useState([13, 100]);
+	
+	function sortedLocationArray(locations) {
+		return [...locations].sort((location1, location2) => {
+			return location2.latest.confirmed - location1.latest.confirmed;
+		});
+	}
+
+
+
+
+	const onSelectLocation = useCallback((id) => {
+		const location = locationArray.find(_location => _location.id === id);
+		if (location === undefined) {
+			setSelectedLocation(null);
+			return;
+		}
+		setSelectedLocation(location);
+		const { coordinates: { latitude, longitude } } = location;
+		setMapCenter([latitude, longitude]);
+	}, [locationArray]);
+
+
+
+
+	const onDeselectLocation = useCallback(() => {
+		setSelectedLocation(null);
+	}, []);
+
+
+
+	useEffect(() => {
+		Axios.get(api).then(response => {
+			const sortedLocations = sortedLocationArray(response.data.locations);
+			setLocationArray(sortedLocations);
+		}).catch(error => {
+			console.log(error);
+		})
+	}, []);
+
+	let detailsView = null;
+	if (selectedLocation != null) {
+		detailsView = <DetailsView location={selectedLocation} onClickClose={onDeselectLocation} />
+	}
+
   return (
     <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
+			<ListView 
+				locationArray={locationArray} 
+				selectedLocation={selectedLocation} 
+				onSelectItem={onSelectLocation} 
+				onDeselectItem={onDeselectLocation} />  
+      <MapView locationArray={locationArray}/>
+      {detailsView}
     </div>
   );
 }
